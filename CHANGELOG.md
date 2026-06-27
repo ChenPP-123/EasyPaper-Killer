@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.2.1] — 2026-06-27
+
+### Added
+- **归档自动清理**：`archive` / `reset` 自动调用 `_cleanup_session_data()`，清空 parsed JSON、重置约束/任务文件为模板、清理 raw 目录用户数据，杜绝任务间的数据残留
+- `init` 阶段自动检测：模板 docx 存在但 `格式与写作要求.md` 为空时输出回填提示
+- `init` 自动创建运行时目录和模板文件（`任务需求.md`、`格式与写作要求.md`）
+- `TemplateSpec` 新增 `abstract_font_rule`、`keywords_font_rule`、`citation_superscript` 字段
+
+### Changed
+- `DocxExporter` 现在从 `TemplateSpec` 读取摘要/关键词字体规则（默认楷体），fontTable 已注册楷体
+- `DocxExporter._build_runs()` 引用上标可通过 `apply_superscript` 参数控制
+- `ExportPipeline` 移除硬编码关键词偏好列表
+- `AGENTS.md` 新增「docx 导出规则」：严禁 agent 自行编写一次性脚本构建 docx
+- `AGENTS.md` 新增「资料收集要求」：明确三个目录路径、两种格式、三种材料区别，含可直接使用的提示模板
+- `AGENTS.md` 模版优先原则新增强制规则：拆包模板后必须将格式信息回填到 `input/constraints/格式与写作要求.md`
+
+### Fixed
+- **`.gitignore` bug**：`workspace/current/` → `workspace/当前项目/`，修复实际工作台目录名从未被忽略的问题
+- 全面排除运行时数据目录（`input/`、`workspace/`、`output/`、`template/`），Git 仓库只追源码
+- README 保持零命令用户体验，移除数据分离相关的命令行说明
+
+### Removed
+- 清理测试产生的 `scripts/` 自定义导出脚本（被管线禁止的旁路代码）
+- 清除上一轮测试残留的 `evidence.json`、`references.json`、`sources.json` 数据
+- 从 Git 追踪中移除所有 `input/` 下的用户数据文件，改为 `init` 按需创建
+
+---
+
 ## [0.2.0] — 2026-06-27
 
 ### Added
