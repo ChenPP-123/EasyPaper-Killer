@@ -133,19 +133,30 @@ class ExportPipeline:
             references=references,
         )
         template_name = self._select_template_name(paths.template_dir)
+        output_path = paths.output_dir / "论文初稿.docx"
         self.exporter.export(
             payload,
             TemplateSpec(template_name=template_name),
-            paths.output_dir / "论文初稿.docx",
+            output_path,
         )
+
+        validation_msg = self._validate_export(output_path)
+
         return ExportSummary(
             keyword_count=len(keywords),
             section_count=len(sections),
             generated_files=[
                 str(paths.abstract_keywords_file),
-                str(paths.output_dir / "论文初稿.docx"),
+                str(output_path),
             ],
         )
+
+    def _validate_export(self, output_path: Path) -> str:
+        try:
+            from src.export.office import validate_docx
+            return validate_docx(str(output_path))
+        except Exception:
+            return ""
 
     def _load_title(self, file_path: Path) -> str:
         if not file_path.exists():

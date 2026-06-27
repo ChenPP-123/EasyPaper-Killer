@@ -75,6 +75,8 @@
 - `workspace/当前项目/05_章节写作计划.md`
 - `python -m src.app status` 的输出结果
 - `python -m src.app guide` 的输出结果
+- `src/writing/nature/`（写作阶段需要时加载写作指引片段）
+- `src/export/office/__init__.py`（docx 高级编辑时参考）
 
 ## agent 回复要求
 
@@ -89,6 +91,65 @@
 ## 可选扩展
 
 如果当前 agent 运行环境本身支持外部模型 API，可以使用 `src/writing/generate.py` 之类的辅助脚本；如果没有，也应优先通过当前 agent 会话本身完成逐批生成，而不是把“缺少 API”当作主流程阻塞点。
+
+## 项目内集成技能
+
+### 1. docx 高级编辑工具（`src/export/office/`）
+
+零外部依赖的 OOXML 文档编辑工具集，用于高级 docx 操作。
+
+| 工具 | 命令 | 用途 |
+|------|------|------|
+| 拆包 | `python -m src.export.office.unpack input.docx unpacked/` | 将 docx 解包为可编辑的 XML |
+| 打包 | `python -m src.export.office.pack unpacked/ output.docx` | 将编辑后的 XML 重新打包为 docx |
+| 校验 | `python -m src.export.office.validate output.docx` | 校验 docx 结构完整性（需 `lxml`，可选） |
+| 接受修订 | `python -m src.export.office.accept_changes input.docx output.docx` | 接受全部修订标记（需 LibreOffice） |
+| 批注 | `python -m src.export.office.comment unpacked/ 0 "内容"` | 向文档添加批注 |
+
+使用时机：
+- 需要调整已生成 docx 的结构（如修改章节标题、添加页眉页脚）
+- 需要对文档应用修订跟踪或批注审阅
+- 需要校验导出的 docx 是否符合 OOXML 标准
+- 常规 docx 导出使用 `src/export/docx.py`（已在导出流程自动调用）
+
+Python API：
+```python
+from src.export.office import unpack, pack, add_comment, accept_changes, validate_docx
+```
+
+### 2. Nature 风格学术写作指引（`src/writing/nature/`）
+
+Nature 期刊风格的论文写作指引系统，为 agent 的正文写作提供分章节、分类型的高质量写作规则。
+
+使用方式：
+```python
+from src.writing.nature import load_fragments, available_values, list_references
+
+# 查看可用维度
+print(available_values())  # paper_type, section, language, journal
+
+# 加载当前章节的写作指引
+fragments = load_fragments(
+    paper_type='research',   # research/methods/hypothesis/algorithmic/review
+    section='intro',          # abstract/intro/method/experiments/discussion/conclusion/title
+    language='zh-to-en',      # en/zh-to-en
+    journal='generic',        # nature/nat-comms/generic
+)
+for content in fragments.all_content():
+    pass  # 将写作规则纳入写作 prompt 或直接应用
+```
+
+使用时机：
+- 写作阶段（流程第 5 步）生成各章节时，读取对应章节的写作指引
+- 撰写摘要、引言、方法、实验、讨论、结论时，按 section 取值加载
+- 中文笔记转写英文时，使用 `language='zh-to-en'` 获取中译英规则
+- 面向 Nature 子刊投稿时，使用 `journal='nature'` 获取期刊风格约束
+- 每章写作前应先加载该章的写作指引，并将规则纳入 prompt 上下文
+
+指引原则：
+- 证据优先：不编造数据、机制、统计量或创新性
+- 按章节类型控制引用密度和措辞强度
+- 每段有清晰论点，段首句表达该段核心主张
 
 ## 推荐入口顺序
 

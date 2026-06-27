@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
-from pathlib import Path
+
+_CITATION_RE = re.compile(r"(\[\d+(?:[,;\-]\d+)*\])")
 
 from src.models import TemplateSpec
 
@@ -213,18 +215,45 @@ class DocxExporter:
             indent_xml = '<w:ind w:firstLine="420"/>'
         jc_xml = '' if align == "left" else f'<w:jc w:val="{align}"/>'
         bold_xml = '<w:b/>' if bold else ''
+        runs_xml = self._build_runs(safe, font, size, bold_xml)
         return (
             '<w:p><w:pPr>'
             f'<w:pStyle w:val="{style}"/>'
             '<w:spacing w:line="420" w:lineRule="auto" w:after="120"/>'
             f'{indent_xml}{jc_xml}'
-            '</w:pPr><w:r><w:rPr>'
-            f'<w:rFonts w:ascii="{font}" w:eastAsia="{font}" w:hAnsi="{font}"/>'
-            f'{bold_xml}<w:sz w:val="{size}"/><w:szCs w:val="{size}"/>'
-            '</w:rPr>'
-            f'<w:t xml:space="preserve">{safe}</w:t>'
-            '</w:r></w:p>'
+            '</w:pPr>'
+            f'{runs_xml}'
+            '</w:p>'
         )
+
+    def _build_runs(self, text: str, font: str, size: int, bold_xml: str) -> str:
+        parts = _CITATION_RE.split(text)
+        runs = []
+        run_fmt = (
+            f'<w:rPr>'
+            f'<w:rFonts w:ascii="{font}" w:eastAsia="{font}" w:hAnsi="{font}"/>'
+            f'{bold_xml}'
+            f'<w:sz w:val="{size}"/><w:szCs w:val="{size}"/>'
+            f'</w:rPr>'
+        )
+        sup_fmt = (
+            f'<w:rPr>'
+            f'<w:rFonts w:ascii="{font}" w:eastAsia="{font}" w:hAnsi="{font}"/>'
+            f'{bold_xml}'
+            f'<w:sz w:val="{size}"/><w:szCs w:val="{size}"/>'
+            f'<w:vertAlign w:val="superscript"/>'
+            f'</w:rPr>'
+        )
+        for part in parts:
+            if not part:
+                continue
+            fmt = sup_fmt if _CITATION_RE.fullmatch(part) else run_fmt
+            runs.append(
+                f'<w:r>{fmt}'
+                f'<w:t xml:space="preserve">{part}</w:t>'
+                f'</w:r>'
+            )
+        return ''.join(runs)
 
     def _split_paragraphs(self, text: str) -> list[str]:
         return [line.strip() for line in text.splitlines() if line.strip()]

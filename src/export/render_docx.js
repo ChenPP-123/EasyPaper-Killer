@@ -12,6 +12,25 @@ const {
   TextRun,
 } = require("docx");
 
+const CITATION_RE = /(\[\d+(?:[,;\-]\d+)*\])/;
+
+function splitCitationSpans(text) {
+  return text.split(CITATION_RE).filter(Boolean);
+}
+
+function isCitationSpan(text) {
+  return /^\[\d+(?:[,;\-]\d+)*\]$/.test(text);
+}
+
+function buildCitationRuns(text, options) {
+  return splitCitationSpans(text).map((part) => {
+    if (isCitationSpan(part)) {
+      return new TextRun({ ...options, text: part, superScript: true });
+    }
+    return new TextRun({ ...options, text: part });
+  });
+}
+
 function buildParagraphs(text) {
   return text
     .split(/\n+/)
@@ -22,13 +41,7 @@ function buildParagraphs(text) {
         new Paragraph({
           spacing: { line: 420, after: 120 },
           indent: { firstLine: 420 },
-          children: [
-            new TextRun({
-              text: line,
-              font: "宋体",
-              size: 24,
-            }),
-          ],
+          children: buildCitationRuns(line, { font: "宋体", size: 24 }),
         })
     );
 }
@@ -90,7 +103,7 @@ async function main() {
       new Paragraph({
         spacing: { after: 100 },
         indent: { hanging: 420 },
-        children: [new TextRun({ text: ref, font: "宋体", size: 24 })],
+        children: buildCitationRuns(ref, { font: "宋体", size: 24 }),
       })
     );
   }
