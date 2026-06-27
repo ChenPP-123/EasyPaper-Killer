@@ -37,28 +37,7 @@
 - **先问你有没有模版要求**（文字描述或 docx 样例都行）
 - 再进入选题、检索、写作等流程
 
-## 推荐用法：代码和数据分离
-
-为了避免论文数据混入 Git 仓库，推荐把论文工作区放到本仓库之外的独立目录：
-
-```bash
-# 1. 克隆仓库（只做一次）
-git clone <repo-url> EasyPaper-Killer
-
-# 2. 进入仓库
-cd EasyPaper-Killer
-
-# 3. 在仓库外创建论文工作区，用 --project-root 指向它
-mkdir -p ~/Papers/MyPaper
-python -m src.app init --project-root ~/Papers/MyPaper
-```
-
-这样：
-- **仓库**里只有代码，`git pull` 不影响你的论文数据
-- **论文**存在独立目录，随意换代理、升级项目都不会丢
-- 所有 `input/`、`workspace/`、`output/` 都在 `~/Papers/MyPaper/` 下
-
-如果你只是想快速尝试，不指定 `--project-root` 也可以——`.gitignore` 已经排除所有数据目录，不会污染仓库。
+所有工作都在项目目录内完成。论文过程中产生的文件（`input/`、`workspace/`、`output/`）已被 `.gitignore` 排除，不会混入 Git 仓库或影响项目更新。
 
 ## 你有模版吗？
 
@@ -125,14 +104,14 @@ EasyPaper-Killer/
 Hi agent! 进入目录后：
 
 ```bash
-# 判断当前状态
-python -m src.app init --project-root <路径>
+# 判断当前状态（默认 project-root 为当前目录）
+python -m src.app init
 
 # 获取下一步指引
-python -m src.app guide --project-root <路径>
+python -m src.app guide
 
 # 自动推进到下一个稳定阶段
-python -m src.app advance --project-root <路径>
+python -m src.app advance
 ```
 
 详细规则在 `AGENTS.md`。**开始任何工作前，先问用户有没有模版要求。** 写作阶段记得加载 `src/writing/nature/` 的指引碎片，文档编辑参考 `src/export/office/`。
