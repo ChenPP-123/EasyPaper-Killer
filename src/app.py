@@ -277,7 +277,7 @@ class ProjectApp:
 
     def guide(self, project_root: Path) -> GuideMessage:
         status = self.status(project_root)
-        message, next_reply = self._build_guide_text(status)
+        message, next_reply = self._build_guide_text(status, project_root)
         return GuideMessage(
             current_stage=status.current_stage,
             completed=status.completed,
@@ -339,34 +339,35 @@ class ProjectApp:
             key_files=final.key_files,
         )
 
-    def _build_guide_text(self, status: ProjectStatus) -> tuple[str, str]:
+    def _build_guide_text(self, status: ProjectStatus, project_root: Path) -> tuple[str, str]:
+        pr = str(project_root)
         if status.current_stage == "等待资料入库":
             return (
-                "当前还没有完成资料入库。请先提醒用户把论文 PDF 放到 `input/references/raw/pdf/`，把查新引文和参考文献文本放到 `input/references/raw/`。资料放好后，你可以直接运行 `python -m src.app ingest` 进入下一阶段。",
+                f"当前还没有完成资料入库。请先提醒用户把论文 PDF 放到 `input/references/raw/pdf/`，把查新引文和参考文献文本放到 `input/references/raw/`。资料放好后，你可以直接运行 `python -m src.app ingest --project-root \"{pr}\"` 进入下一阶段。",
                 "资料已放入",
             )
         if status.current_stage == "等待大纲生成":
             return (
-                "资料已经入库，但还没有生成大纲。你现在可以直接运行 `python -m src.app plan`，然后把 `workspace/当前项目/01_选题收敛.md`、`03_资料盘点.md` 和 `04_论文大纲.md` 作为当前讨论基础。",
+                f"资料已经入库，但还没有生成大纲。你现在可以直接运行 `python -m src.app plan --project-root \"{pr}\"`，然后把 `workspace/当前项目/01_选题收敛.md`、`03_资料盘点.md` 和 `04_论文大纲.md` 作为当前讨论基础。",
                 "继续生成大纲",
             )
         if status.current_stage == "等待写作拆分":
             return (
-                "大纲已经有了，但还没有拆成分章节写作任务。你现在可以运行 `python -m src.app write-prepare`，随后按 `workspace/当前项目/05_章节写作计划.md` 和 `workspace/当前项目/prompts/` 开始逐章逐批写作。",
+                f"大纲已经有了，但还没有拆成分章节写作任务。你现在可以运行 `python -m src.app write-prepare --project-root \"{pr}\"`，随后按 `workspace/当前项目/05_章节写作计划.md` 和 `workspace/当前项目/prompts/` 开始逐章逐批写作。",
                 "开始分章写作",
             )
         if status.current_stage == "正文分批写作中":
             return (
-                "正文已经进入逐批写作阶段。注意流程闸门：只能按章节逐批推进，不能一次性生成整篇。优先读取 `workspace/当前项目/05_章节写作计划.md` 和 `workspace/当前项目/prompts/`，把本批结果回填到 `workspace/当前项目/section_drafts/`。每章的 prompt 已按章节定位（引言/主体/结论）配置了不同的引用密度规则：引言可以较密集引文，主体以分析为主，结论避免句句挂引用。完成当前章节后，再运行 `python -m src.app refresh`。",
+                f"正文已经进入逐批写作阶段。注意流程闸门：只能按章节逐批推进，不能一次性生成整篇。优先读取 `workspace/当前项目/05_章节写作计划.md` 和 `workspace/当前项目/prompts/`，把本批结果回填到 `workspace/当前项目/section_drafts/`。每章的 prompt 已按章节定位（引言/主体/结论）配置了不同的引用密度规则：引言可以较密集引文，主体以分析为主，结论避免句句挂引用。完成当前章节后，再运行 `python -m src.app refresh --project-root \"{pr}\"`。",
                 "继续下一批",
             )
         if status.current_stage == "等待后处理与导出":
             return (
-                "正文草稿已经成形，但还没有完成引用整理、校验和导出。注意流程闸门：正文未全部完成时不能提前做摘要和导出。你现在可以直接运行 `python -m src.app refresh`，它会重建总草稿、整理引用、生成校验报告并导出 docx。",
+                f"正文草稿已经成形，但还没有完成引用整理、校验和导出。注意流程闸门：正文未全部完成时不能提前做摘要和导出。你现在可以直接运行 `python -m src.app refresh --project-root \"{pr}\"`，它会重建总草稿、整理引用、生成校验报告并导出 docx。",
                 "开始整理导出",
             )
         return (
-            "当前项目已经处于可精修或终稿阶段。优先查看 `workspace/当前项目/09_校验报告.md` 和 `output/论文初稿.docx`，根据风险项决定是补资料、微调正文，还是直接进入终稿完善。完成这篇后，可以运行 `python -m src.app archive --project-root <项目目录>` 归档，再开始新任务。",
+            f"当前项目已经处于可精修或终稿阶段。优先查看 `workspace/当前项目/09_校验报告.md` 和 `output/论文初稿.docx`，根据风险项决定是补资料、微调正文，还是直接进入终稿完善。完成这篇后，可以运行 `python -m src.app archive --project-root \"{pr}\"` 归档，再开始新任务。",
             "继续精修",
         )
 

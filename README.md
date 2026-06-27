@@ -1,91 +1,74 @@
 # EasyPaper Killer
 
-## 项目目标
+## 这是什么
 
-这个项目用于辅助生成偏文科、偏综述型的课程论文。系统的核心目标不是自由发挥式写作，而是基于用户提供的真实资料，完成选题细化、大纲规划、正文生成、引用绑定和 docx 导出。
+一个帮你写论文的对话式工作台。打开 agent 工具（Claude Code、Codex、OpenCode 等），用自然语言告诉它你的论文需求，剩下的——选题、大纲、正文、引用、排版——agent 会逐步引导你完成。
 
-## 使用原则
+你不需要运行任何命令、安装任何依赖，也不用懂 Python。整个过程中你只需要做三件事：
 
-- 用户的主要体验应当是和 agent 对话。
-- 用户尽量只做三类动作：描述需求、确认关键决策、把资料放进指定文件夹。
-- agent 在每一步都要明确告知用户当前状态、下一步要做什么、资料应该放到哪里。
-- 正式引用只能来自用户已提供并已入库的资料，不能凭空编造。
+1. **说需求** — 告诉 agent 你要写什么论文。
+2. **做决策** — 确认题目、确认大纲、确认要不要修改。
+3. **放资料** — 把你下载的论文 PDF 或查新引文拖进指定文件夹。
 
-## 运行方式
+## 它能写什么
 
-本项目默认不是一个“内部封装好模型 API 的自动化程序”，而是一个给 Claude Code、Codex、OpenCode 这一类 agent 工具直接使用的工作环境。
+- 课程论文、综述型论文、现状分析、对策建议类文章
+- 不太适合：公式推导密集、强实验设计、数据建模、需要原创研究结论的论文
 
-默认用法是：
+## 你需要准备什么
 
-1. 用户在本目录中打开 agent 工具。
-2. agent 读取 `docs/`、`input/`、`workspace/` 中的上下文文件。
-3. agent 在对话中推进论文任务，并在需要时更新工作台文件。
+| 你需要的东西 | 什么时候准备 | 放到哪里 |
+|-------------|------------|---------|
+| 论文的方向、字数、截止时间 | 一开始告诉 agent | 直接说就行 |
+| 论文 PDF | agent 告诉你“可以开始找资料了”之后 | `input/references/raw/pdf/` |
+| 查新引文、参考文献文本 | 同上 | `input/references/raw/` |
+| 老师给的格式模板（如果有） | 同上 | `template/` |
+| 额外写作要求（如果有） | 同上 | `input/constraints/` |
 
-`src/` 下的脚本主要用于辅助整理资料、生成工作台文件和做后处理，不应被理解为必须依赖外部 API 才能使用本项目。
+整个过程 agent 会在对话中随时提醒你“现在该做什么”，不用提前操心。
 
-## 开箱即用
+## 大致流程
 
-这个项目现在默认按“无需额外安装依赖”来组织：
+整个过程像一次对话式协作，agent 会陪你走完每一步：
 
-- Python 侧仅使用标准库。
-- docx 导出不再依赖 `pandoc`、`npm install` 或额外 pip 包。
-- agent 进入目录后，可以直接读文档和运行项目内现成脚本推进主流程；如果先快速理解项目结构，后续效果通常会更稳。
+1. 你告诉 agent 论文方向，agent 帮你把题目收敛到可写的范围。
+2. agent 给出检索关键词，告诉你去知网搜什么、下几篇、放哪儿。
+3. 你把资料放好后告诉 agent，它来解析文献、盘点覆盖情况。
+4. 资料够了，agent 生成大纲，你确认或调整章节结构。
+5. agent 按章节逐批写正文，每章写完后你可以提修改意见。
+6. 正文写完后，agent 整理引用、摘要、参考文献，生成校验报告。
+7. 最后导出 docx 文件，搞定。
 
-推荐统一入口：
+每一步 agent 都会明确告诉你：当前进度是什么、接下来你要做什么、东西放哪里。你不需要去猜“现在该干嘛”。
 
-```bash
-.venv/bin/python -m src.app status --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-```
+## 不会发生的事情
 
-如果 agent 想直接知道当前该怎么和用户沟通，优先使用：
+- 不会让你跑命令行
+- 不会让你装 Python 包、pandoc、npm
+- 不会从网上凭空编造文献
+- 不会在资料不够的时候硬写——会先告诉你缺什么、该补什么
 
-```bash
-.venv/bin/python -m src.app guide --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-```
+## 目录说明（给好奇的人）
 
-如果 agent 想把项目自动推进到下一个稳定阶段，优先使用：
+如果你好奇文件是怎么组织的：
 
-```bash
-.venv/bin/python -m src.app advance --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-```
+- `docs/` — agent 遵守的规则和流程说明
+- `template/` — 你的论文格式模板
+- `input/` — 你放进去的资料（PDF、引文、写作要求）
+- `workspace/` — agent 写作过程中产生的中间文件
+- `output/` — 最终导出的 docx 论文
+- `src/` — agent 用的辅助脚本，普通用户不需要关心
 
-常用命令：
+## 给 agent 的指引
 
-```bash
-.venv/bin/python -m src.app ingest --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-.venv/bin/python -m src.app plan --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-.venv/bin/python -m src.app write-prepare --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-.venv/bin/python -m src.app refresh --project-root "/Users/chenyule/WorkSpace/TempWork/论文写作"
-```
+如果你是进入本目录工作的 agent：
 
-## 适用范围
+- 优先读取 `AGENTS.md` 了解行为约定
+- 统一入口为 `python -m src.app`，`--project-root` 指向用户的论文工作区
+- 运行 `python -m src.app init --project-root <项目目录>` 后，工具会提示当前环境下正确的 Python 命令路径
+- 用 `python -m src.app guide` 获取当前阶段的下一步指引
+- 用 `python -m src.app advance` 自动推进到下一个稳定阶段
 
-- 适合：课程论文、综述型论文、现状分析、对策建议类文章。
-- 不适合：高公式推导、强实验设计、强数据建模、需要严密原创研究结论的论文。
+## 当前版本
 
-## 标准工作流
-
-1. 用户在对话中告诉 agent 论文方向和约束条件。
-2. agent 帮用户收敛选题，并生成知网检索式。
-3. agent 明确提示用户把查新引文、参考文献文本、PDF 放入指定目录。
-4. 用户放入资料后，agent 解析资料并总结当前文献覆盖情况。
-5. agent 生成论文大纲，与用户确认后分章写作。
-6. agent 输出正文、摘要、参考文献和校验报告。
-7. agent 按模板导出 docx。
-
-## 目录说明
-
-- `docs/`：项目规则、流程、数据结构、校验约束。
-- `template/`：用户提供的论文模板。
-- `input/`：用户原始输入资料和格式约束。
-- `workspace/`：agent 生成的中间产物。
-- `output/`：最终导出的论文文件。
-
-## 当前版本边界
-
-当前版本优先搭建文档骨架和流程规范，目标是让后续实现时有稳定的项目结构和交互约束。
-
-## 关键提醒
-
-- 如果 agent 判断资料不足，应先提示用户补充资料，而不是直接硬写。
-- 如果 agent 发现需要补新文献，只能先给出候选建议，并提示用户补充对应资料后再纳入正式引用。
+目前优先搭建文档骨架和流程规范，确保后续开发有稳定的项目结构和交互约束。
