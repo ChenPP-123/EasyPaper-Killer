@@ -61,6 +61,10 @@ class ProjectPaths:
         return self.workspace_root_dir / "当前项目"
 
     @property
+    def template_constraint_file(self) -> Path:
+        return self.workspace_dir / "00_模版要求.md"
+
+    @property
     def topic_refinement_file(self) -> Path:
         return self.workspace_dir / "01_选题收敛.md"
 
