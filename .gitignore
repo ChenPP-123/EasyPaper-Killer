@@ -2,10 +2,9 @@
 __pycache__/
 *.pyc
 .DS_Store
-workspace/current/
-workspace/archive/
+workspace/
 output/
 scripts/
 template/
-input/references/raw/
+input/
 run*/

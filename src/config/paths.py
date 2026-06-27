@@ -11,6 +11,9 @@ class ProjectPaths:
     def ensure_runtime_dirs(self) -> None:
         self.parsed_references_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.raw_pdf_dir.mkdir(parents=True, exist_ok=True)
+        self.constraints_file.parent.mkdir(parents=True, exist_ok=True)
+        self.task_requirements_file.parent.mkdir(parents=True, exist_ok=True)
 
     @property
     def docs_dir(self) -> Path:

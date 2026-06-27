@@ -37,6 +37,29 @@
 - **先问你有没有模版要求**（文字描述或 docx 样例都行）
 - 再进入选题、检索、写作等流程
 
+## 推荐用法：代码和数据分离
+
+为了避免论文数据混入 Git 仓库，推荐把论文工作区放到本仓库之外的独立目录：
+
+```bash
+# 1. 克隆仓库（只做一次）
+git clone <repo-url> EasyPaper-Killer
+
+# 2. 进入仓库
+cd EasyPaper-Killer
+
+# 3. 在仓库外创建论文工作区，用 --project-root 指向它
+mkdir -p ~/Papers/MyPaper
+python -m src.app init --project-root ~/Papers/MyPaper
+```
+
+这样：
+- **仓库**里只有代码，`git pull` 不影响你的论文数据
+- **论文**存在独立目录，随意换代理、升级项目都不会丢
+- 所有 `input/`、`workspace/`、`output/` 都在 `~/Papers/MyPaper/` 下
+
+如果你只是想快速尝试，不指定 `--project-root` 也可以——`.gitignore` 已经排除所有数据目录，不会污染仓库。
+
 ## 你有模版吗？
 
 老师发的格式要求、学长学姐传的 docx 样例、自己写的样式说明——**不管什么形式**，在选题之前告诉 agent，它会从头到尾照着做。这样你就不用写完再调格式。

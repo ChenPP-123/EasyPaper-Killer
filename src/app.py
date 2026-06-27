@@ -156,12 +156,14 @@ class ProjectApp:
 
     def init_workspace(self, project_root: Path) -> TaskInitResult:
         paths = ProjectPaths(project_root.resolve())
+        paths.ensure_runtime_dirs()
+        self._ensure_template_files(paths)
         python_cmd = detect_python()
         has_task = paths.workspace_dir.exists() and any(paths.workspace_dir.iterdir())
 
         def _build_message(base_message: str) -> str:
             templates = sorted(paths.template_dir.glob("*.docx")) if paths.template_dir.exists() else []
-            constraints_file = paths.input_dir / "constraints" / "格式与写作要求.md"
+            constraints_file = paths.constraints_file
             constraints_is_empty = True
             if constraints_file.exists():
                 content = constraints_file.read_text(encoding="utf-8")
@@ -244,6 +246,21 @@ class ProjectApp:
         paths.workspace_dir.mkdir(parents=True, exist_ok=True)
         self._cleanup_session_data(paths)
         return archive_result
+
+    def _ensure_template_files(self, paths: ProjectPaths) -> None:
+        """Create template files if they don't already exist."""
+        if not paths.task_requirements_file.exists():
+            try:
+                paths.task_requirements_file.parent.mkdir(parents=True, exist_ok=True)
+                paths.task_requirements_file.write_text(_TASK_REQUIREMENTS_TEMPLATE, encoding="utf-8")
+            except OSError:
+                pass
+        if not paths.constraints_file.exists():
+            try:
+                paths.constraints_file.parent.mkdir(parents=True, exist_ok=True)
+                paths.constraints_file.write_text(_FORMAT_CONSTRAINTS_TEMPLATE, encoding="utf-8")
+            except OSError:
+                pass
 
     def _cleanup_session_data(self, paths: ProjectPaths) -> None:
         """Reset session-scoped data files to clean template state after archive/reset."""
