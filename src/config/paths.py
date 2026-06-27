@@ -119,3 +119,11 @@ class ProjectPaths:
     @property
     def output_dir(self) -> Path:
         return self.root / "output"
+
+    @property
+    def constraints_file(self) -> Path:
+        return self.input_dir / "constraints" / "格式与写作要求.md"
+
+    @property
+    def task_requirements_file(self) -> Path:
+        return self.input_dir / "topic" / "任务需求.md"

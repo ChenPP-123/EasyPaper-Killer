@@ -96,6 +96,9 @@ class TemplateSpec:
     body_font_rule: str = ""
     line_spacing_rule: str = ""
     reference_style_rule: str = "GB/T 7714-2015"
+    abstract_font_rule: str = ""
+    keywords_font_rule: str = ""
+    citation_superscript: bool = True
 
 
 @dataclass(slots=True)

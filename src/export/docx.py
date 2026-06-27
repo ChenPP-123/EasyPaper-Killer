@@ -26,12 +26,15 @@ class DocxExporter:
 
     def export(self, payload: ExportPayload, template: TemplateSpec, output_path: Path) -> Path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        abstract_font = template.abstract_font_rule or "楷体"
+        keywords_font = template.keywords_font_rule or "楷体"
+        citation_superscript = template.citation_superscript
         with ZipFile(output_path, "w", compression=ZIP_DEFLATED) as docx:
             docx.writestr("[Content_Types].xml", self._content_types_xml())
             docx.writestr("_rels/.rels", self._root_rels_xml())
             docx.writestr("docProps/core.xml", self._core_props_xml(payload.title))
             docx.writestr("docProps/app.xml", self._app_props_xml())
-            docx.writestr("word/document.xml", self._document_xml(payload))
+            docx.writestr("word/document.xml", self._document_xml(payload, abstract_font, keywords_font, citation_superscript))
             docx.writestr("word/styles.xml", self._styles_xml())
             docx.writestr("word/settings.xml", self._settings_xml())
             docx.writestr("word/fontTable.xml", self._font_table_xml())
@@ -133,7 +136,7 @@ class DocxExporter:
         return (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             '<w:fonts xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            '<w:font w:name="宋体"/><w:font w:name="黑体"/>'
+            '<w:font w:name="宋体"/><w:font w:name="黑体"/><w:font w:name="楷体"/>'
             '</w:fonts>'
         )
 
@@ -157,13 +160,13 @@ class DocxExporter:
             '</w:styles>'
         )
 
-    def _document_xml(self, payload: ExportPayload) -> str:
+    def _document_xml(self, payload: ExportPayload, abstract_font: str = "楷体", keywords_font: str = "楷体", citation_superscript: bool = True) -> str:
         body_parts: list[str] = []
         body_parts.append(self._paragraph_xml(payload.title, style="title", align="center", bold=True, font="黑体", size=32))
         body_parts.append(self._heading_xml("摘要"))
         for paragraph in self._split_paragraphs(payload.abstract):
-            body_parts.append(self._paragraph_xml(paragraph))
-        body_parts.append(self._paragraph_xml("关键词：" + "；".join(payload.keywords), first_line=False))
+            body_parts.append(self._paragraph_xml(paragraph, font=abstract_font, apply_superscript=citation_superscript))
+        body_parts.append(self._paragraph_xml("关键词：" + "；".join(payload.keywords), first_line=False, font=keywords_font, apply_superscript=False))
 
         for title, body in payload.sections:
             body_parts.append(self._heading_xml(title))
@@ -206,6 +209,7 @@ class DocxExporter:
         size: int = 24,
         first_line: bool = True,
         hanging: bool = False,
+        apply_superscript: bool = True,
     ) -> str:
         safe = escape(text)
         indent_xml = ''
@@ -215,7 +219,7 @@ class DocxExporter:
             indent_xml = '<w:ind w:firstLine="420"/>'
         jc_xml = '' if align == "left" else f'<w:jc w:val="{align}"/>'
         bold_xml = '<w:b/>' if bold else ''
-        runs_xml = self._build_runs(safe, font, size, bold_xml)
+        runs_xml = self._build_runs(safe, font, size, bold_xml, apply_superscript)
         return (
             '<w:p><w:pPr>'
             f'<w:pStyle w:val="{style}"/>'
@@ -226,7 +230,7 @@ class DocxExporter:
             '</w:p>'
         )
 
-    def _build_runs(self, text: str, font: str, size: int, bold_xml: str) -> str:
+    def _build_runs(self, text: str, font: str, size: int, bold_xml: str, apply_superscript: bool = True) -> str:
         parts = _CITATION_RE.split(text)
         runs = []
         run_fmt = (
@@ -247,7 +251,8 @@ class DocxExporter:
         for part in parts:
             if not part:
                 continue
-            fmt = sup_fmt if _CITATION_RE.fullmatch(part) else run_fmt
+            is_citation = _CITATION_RE.fullmatch(part) and apply_superscript
+            fmt = sup_fmt if is_citation else run_fmt
             runs.append(
                 f'<w:r>{fmt}'
                 f'<w:t xml:space="preserve">{part}</w:t>'

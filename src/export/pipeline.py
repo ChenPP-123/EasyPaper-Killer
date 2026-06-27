@@ -60,10 +60,6 @@ class SummaryGenerator:
                 keywords.append(cleaned)
 
         section_text = " ".join(body for _, body in sections)
-        for preferred in ["碳达峰", "节能降碳", "能源结构转型", "产业转型升级", "绿色低碳发展"]:
-            if preferred in section_text and preferred not in keywords:
-                keywords.append(preferred)
-
         for phrase in self._extract_keywords(title + " " + section_text):
             normalized = self._normalize_keyword(phrase)
             if normalized and normalized not in keywords:

@@ -77,6 +77,79 @@ class ArchiveResult:
     action: str
 
 
+_TASK_REQUIREMENTS_TEMPLATE = """\
+# 任务需求
+
+- 课程名称：
+- 论文方向：
+- 当前初始题目：
+- 论文类型：
+- 目标字数：
+- 是否需要摘要：
+- 是否需要关键词：
+- 是否需要致谢：
+"""
+
+_FORMAT_CONSTRAINTS_TEMPLATE = """\
+# 格式与写作要求
+
+本文件用于汇总学校模板、老师要求和本次论文的额外限制。若用户没有手动填写，agent 应在对话中主动提取并补全关键信息。
+
+## 模板信息
+
+- 使用模板文件：
+- 模板是否已核对：
+- 是否已有明确封面要求：
+- 是否需要目录：
+
+## 标题与层级要求
+
+- 论文题目格式：
+- 一级标题格式：
+- 二级标题格式：
+- 三级标题格式：
+
+## 正文格式要求
+
+- 正文字体：
+- 正文字号：
+- 行距：
+- 段前段后：
+- 页边距：
+- 页码要求：
+
+## 摘要与关键词要求
+
+- 中文摘要要求：
+- 中文关键词数量：
+- 英文摘要要求：
+
+## 参考文献要求
+
+- 参考文献格式标准：
+- 是否要求知网格式优先：
+- 是否要求文献数量下限：
+- 是否要求近年文献比例：
+
+## 内容写作要求
+
+- 是否偏综述：
+- 是否强调学术风：
+- 是否允许明显口语化表达：
+- 是否需要避免绝对化结论：
+
+## agent 使用说明
+
+如果本文件中有空缺，agent 应按以下顺序处理：
+
+1. 先从模板中提取能确定的信息。
+2. 再从用户对话中补充。
+3. 仍无法确认时，在校验报告中标记为待确认项。
+
+agent 不应在格式要求不明确时假装已经完全满足模板。
+"""
+
+
 class ProjectApp:
     def __init__(self) -> None:
         self.qa_checker = QualityChecker()
@@ -85,12 +158,34 @@ class ProjectApp:
         paths = ProjectPaths(project_root.resolve())
         python_cmd = detect_python()
         has_task = paths.workspace_dir.exists() and any(paths.workspace_dir.iterdir())
+
+        def _build_message(base_message: str) -> str:
+            templates = sorted(paths.template_dir.glob("*.docx")) if paths.template_dir.exists() else []
+            constraints_file = paths.input_dir / "constraints" / "格式与写作要求.md"
+            constraints_is_empty = True
+            if constraints_file.exists():
+                content = constraints_file.read_text(encoding="utf-8")
+                constraints_is_empty = not any(
+                    line.startswith("- ") and line.split("：")[-1].strip()
+                    for line in content.splitlines()
+                    if line.startswith("- ")
+                )
+            if templates and constraints_is_empty:
+                template_name = templates[0].name
+                return (
+                    f"{base_message}\n\n"
+                    f"⚠️ 检测到模板文件 `template/{template_name}` 但 `input/constraints/格式与写作要求.md` 尚未填写格式规则。\n"
+                    f"请先拆包模板 docx（`{python_cmd} -m src.export.office.unpack`），提取样式定义中的字体、字号、行距等信息，"
+                    f"回填到 `input/constraints/格式与写作要求.md` 的对应字段。"
+                )
+            return base_message
+
         if not has_task:
             return TaskInitResult(
                 has_existing_task=False,
                 detected_topic="",
                 proposed_action="start_new",
-                message=f"当前工作台为空，可以直接开始新任务。跟用户确认论文方向和基本要求即可进入题目收敛阶段。后续运行命令时请使用 `{python_cmd} -m src.app <命令>` 格式。",
+                message=_build_message(f"当前工作台为空，可以直接开始新任务。跟用户确认论文方向和基本要求即可进入题目收敛阶段。后续运行命令时请使用 `{python_cmd} -m src.app <命令>` 格式。"),
                 next_reply_options=["开始新任务"],
             )
 
@@ -135,6 +230,8 @@ class ProjectApp:
         archive_subdir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(paths.workspace_dir), str(archive_subdir))
 
+        self._cleanup_session_data(paths)
+
         return ArchiveResult(
             archived_task=detected_topic or "未识别题目",
             archive_path=str(archive_subdir),
@@ -145,7 +242,45 @@ class ProjectApp:
         archive_result = self.archive_task(project_root)
         paths = ProjectPaths(project_root.resolve())
         paths.workspace_dir.mkdir(parents=True, exist_ok=True)
+        self._cleanup_session_data(paths)
         return archive_result
+
+    def _cleanup_session_data(self, paths: ProjectPaths) -> None:
+        """Reset session-scoped data files to clean template state after archive/reset."""
+        for file_path in [paths.sources_file, paths.evidence_file, paths.references_file]:
+            try:
+                file_path.write_text("[]", encoding="utf-8")
+            except OSError:
+                pass
+
+        try:
+            paths.constraints_file.write_text(_FORMAT_CONSTRAINTS_TEMPLATE, encoding="utf-8")
+        except OSError:
+            pass
+
+        try:
+            paths.task_requirements_file.write_text(_TASK_REQUIREMENTS_TEMPLATE, encoding="utf-8")
+        except OSError:
+            pass
+
+        for raw_dir in [paths.raw_references_dir, paths.raw_pdf_dir]:
+            if not raw_dir.exists():
+                continue
+            for item in raw_dir.iterdir():
+                if item.name == ".DS_Store" or item.name == ".gitkeep":
+                    continue
+                try:
+                    if item.is_file() or item.is_symlink():
+                        item.unlink()
+                    else:
+                        shutil.rmtree(str(item))
+                except OSError:
+                    pass
+
+        try:
+            paths.raw_pdf_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
 
     def _detect_topic(self, paths: ProjectPaths) -> str:
         if paths.outline_file.exists():

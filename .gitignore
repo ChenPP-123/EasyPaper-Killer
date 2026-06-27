@@ -3,4 +3,9 @@ __pycache__/
 *.pyc
 .DS_Store
 workspace/current/
+workspace/archive/
 output/
+scripts/
+template/
+input/references/raw/
+run*/
