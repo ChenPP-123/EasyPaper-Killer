@@ -10,3 +10,6 @@ template/*
 input/*
 !input/.gitkeep
 run*/
+.env*
+.vscode/
+.idea/
