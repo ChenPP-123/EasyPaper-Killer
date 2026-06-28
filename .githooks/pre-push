@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Pre-push hook: scans commits being pushed for secrets and sensitive data."""
+import subprocess
+import sys
+import re
+
+CONTENT_CHECKS = [
+    ("API key prefix", re.compile(r"\b(sk-[A-Za-z0-9_-]{20,})\b")),
+    ("GitHub token prefix", re.compile(r"\b(ghp_[A-Za-z0-9_]{36,}|gho_[A-Za-z0-9]{36,}|ghu_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})")),
+    ("Chinese phone number", re.compile(r"1[3-9]\d{9}")),
+    ("Chinese national ID", re.compile(r"\d{6}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{4}")),
+    ("Email address in content", re.compile(r"\b[\w.+-]+@[\w-]+\.\w{2,}\b")),
+]
+
+FORBIDDEN_BINARY = (".docx", ".pdf", ".doc", ".pptx", ".xlsx")
+ALLOWED_BINARY_DIR = "template/"
+SKIP_DIRS = [".githooks/"]
+
+def get_pushed_commits():
+    input_data = sys.stdin.read().strip()
+    if not input_data:
+        return None
+
+    lines = input_data.split("\n")
+    new_commits = []
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) < 4:
+            continue
+        local_sha = parts[1]
+        remote_sha = parts[3]
+        if remote_sha == "0" * 40:
+            range_spec = local_sha
+        else:
+            range_spec = f"{remote_sha}..{local_sha}"
+        new_commits.append(range_spec)
+    return new_commits
+
+def scan_commit_range(range_spec):
+    errors = []
+
+    files_result = subprocess.run(
+        ["git", "diff", "--name-only", "-z", range_spec],
+        capture_output=True, text=False,
+    )
+    raw_files = files_result.stdout.decode("utf-8", errors="replace").split("\0")
+    changed_files = [f for f in raw_files if f]
+
+    for f in changed_files:
+        if any(f.startswith(d) for d in SKIP_DIRS):
+            continue
+        for ext in FORBIDDEN_BINARY:
+            if f.lower().endswith(ext) and not f.startswith(ALLOWED_BINARY_DIR):
+                errors.append(f"[Binary file] {f} (禁止在 template/ 外提交二进制文档)")
+
+    diff_result = subprocess.run(
+        ["git", "diff", "-U0", range_spec],
+        capture_output=True, text=True,
+    )
+    current_file = None
+    for line in diff_result.stdout.split("\n"):
+        if line.startswith("+++ "):
+            current_file = line[6:]
+            continue
+        if not line.startswith("+"):
+            continue
+        if current_file and any(current_file.startswith(d) for d in SKIP_DIRS):
+            continue
+        content = line[1:]
+        for name, pattern in CONTENT_CHECKS:
+            matches = pattern.findall(content)
+            for m in matches:
+                errors.append(f"[{name}] 匹配: {m}")
+
+    return errors
+
+def main():
+    commit_ranges = get_pushed_commits()
+    if not commit_ranges:
+        return 0
+
+    all_errors = []
+    for range_spec in commit_ranges:
+        all_errors.extend(scan_commit_range(range_spec))
+
+    if all_errors:
+        print("\n" + "=" * 60)
+        print("  PRE-PUSH: 检测到以下敏感数据，push 已拦截")
+        print("=" * 60)
+        for e in all_errors[:20]:
+            print(f"  [FAIL] {e}")
+        if len(all_errors) > 20:
+            print(f"  ... 共 {len(all_errors)} 条问题")
+        print("=" * 60)
+        print("\n提示: 请修复后重试。紧急情况可用 git push --no-verify\n")
+        return 1
+
+    print("[OK] Pre-push 检查通过。")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

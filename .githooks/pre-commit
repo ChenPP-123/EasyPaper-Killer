@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Pre-commit hook: scans staged changes for secrets and sensitive data."""
+import subprocess
+import sys
+import re
+import os
+
+CONTENT_CHECKS = [
+    ("API key prefix", re.compile(r"\b(sk-[A-Za-z0-9_-]{20,})\b")),
+    ("GitHub token prefix", re.compile(r"\b(ghp_[A-Za-z0-9_]{36,}|gho_[A-Za-z0-9]{36,}|ghu_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})")),
+    ("Chinese phone number", re.compile(r"1[3-9]\d{9}")),
+    ("Chinese national ID", re.compile(r"\d{6}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{4}")),
+    ("Email address in content", re.compile(r"\b[\w.+-]+@[\w-]+\.\w{2,}\b")),
+]
+
+FILENAME_CHECKS = [
+    (".env file", re.compile(r"\.env")),
+]
+
+FORBIDDEN_BINARY = (".docx", ".pdf", ".doc", ".pptx", ".xlsx")
+ALLOWED_BINARY_DIR = "template/"
+SKIP_CONTENT_DIRS = (".githooks/",)
+
+def get_staged_files():
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "-z"],
+        capture_output=True, text=False,
+    )
+    files = result.stdout.decode("utf-8", errors="replace").split("\0")
+    return [f for f in files if f]
+
+def check_binary(filename):
+    if any(filename.lower().endswith(ext) for ext in FORBIDDEN_BINARY):
+        if not filename.startswith(ALLOWED_BINARY_DIR):
+            return True
+    return False
+
+def check_content(filename, checks):
+    if any(filename.startswith(d) for d in SKIP_CONTENT_DIRS):
+        return
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached", "-U0", "--", filename],
+            capture_output=True, text=True,
+        )
+        for line in result.stdout.split("\n"):
+            if not line.startswith("+"):
+                continue
+            content = line[1:]
+            for name, pattern in checks:
+                matches = pattern.findall(content)
+                for m in matches:
+                    yield name, m, content.strip()
+    except Exception:
+        pass
+
+def main():
+    staged = get_staged_files()
+    if not staged:
+        print("[OK] No staged files.")
+        return 0
+
+    errors = []
+
+    for f in staged:
+        base = os.path.basename(f)
+
+        for name, pattern in FILENAME_CHECKS:
+            if pattern.search(base):
+                errors.append(f"[{name}] 文件: {f}")
+
+        for name, pattern in CONTENT_CHECKS:
+            if pattern.search(base):
+                errors.append(f"[{name}] 文件: {f}")
+
+        if check_binary(f):
+            errors.append(f"[Binary file] {f} (只允许在 template/ 下提交 .docx/.pdf)")
+
+        for name, match, snippet in check_content(f, CONTENT_CHECKS):
+            errors.append(f"[{name}] 文件: {f} | 匹配: {match}")
+
+    if errors:
+        print("\n" + "=" * 60)
+        print("  PRE-COMMIT: 检测到以下敏感数据，请处理后再提交")
+        print("=" * 60)
+        for e in errors:
+            print(f"  [FAIL] {e}")
+        print("=" * 60)
+        print("\n提示: 如果是误报，用 git commit --no-verify 跳过检查\n")
+        return 1
+
+    print("[OK] Pre-commit 检查通过。")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -214,3 +214,36 @@ agent 进入目录后，建议默认顺序如下：
 ## 任务归档目录
 
 已归档的任务会保存到 `workspace/archive/<时间戳>_<题目>/`，方便回看记录。如果归档时未识别题目，会显示为 `未知任务`。
+
+## 隐私与安全检查
+
+本项目内置了 git hooks 用于防泄漏检查，位于 `.githooks/` 目录下：
+
+| Hook | 触发时机 | 检查内容 |
+|------|----------|----------|
+| `pre-commit` | `git commit` 前 | 扫描 staged 文件中的 API Key、手机号、身份证号、邮箱、二进制文档 |
+| `pre-push` | `git push` 前 | 扫描待推送 commits 的 diff 内容，查找同样敏感模式 |
+
+### 启用 hooks
+
+新 clone 本项目的用户需执行一次：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+**特别提醒**：二进制文件（`.docx`、`.pdf`、`.doc`、`.pptx`、`.xlsx`）只允许在 `template/` 目录下提交，其他位置会被拦截。
+
+### 紧急跳过
+
+```bash
+git commit --no-verify   # 跳过 pre-commit
+git push --no-verify     # 跳过 pre-push
+```
+
+### agent 的隐私职责
+
+agent 在处理用户论文数据时：
+- 不要在 commit message 中写出论文题目、学校名称、用户个人信息
+- 不要在代码注释中包含用户提供的真实数据
+- 用户论文相关内容只在 `workspace/` 和 `input/` 下操作，这些目录已被 `.gitignore` 排除
